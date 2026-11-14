@@ -1,0 +1,77 @@
+name: ci
+on:
+  pull_request:
+  push: {branches: [main]}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: tests (invariants, seeded bugs, perf behaviour, replay client)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: {python-version: "3.13", cache: pip, cache-dependency-path: requirements.txt}
+      - run: pip install -r requirements.txt
+      - run: python -m pytest --junitxml=reports/junit.xml
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with: {name: junit, path: reports/}
+
+  qualify:
+    name: engine qualification (clean = GO, seeded = NO-GO)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: {python-version: "3.13", cache: pip, cache-dependency-path: requirements.txt}
+      - run: pip install -r requirements.txt
+      - name: qualify every version
+        run: |
+          set +e
+          echo "### Engine qualification" >> "$GITHUB_STEP_SUMMARY"
+          echo "| version | verdict | expected |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          fail=0
+          for v in 1.4.0 1.5.0-rc1 1.5.0-rc2 1.5.0-rc3 1.5.0; do
+            python -m servesim qualify --version "$v" > "q-$v.txt"; rc=$?
+            case "$v" in *rc*) want=1;; *) want=0;; esac
+            verdict=$([ $rc -eq 0 ] && echo GO || echo NO-GO)
+            expected=$([ $want -eq 0 ] && echo GO || echo NO-GO)
+            echo "| $v | $verdict | $expected |" >> "$GITHUB_STEP_SUMMARY"
+            [ $rc -ne $want ] && { cat "q-$v.txt"; fail=1; }
+          done
+          exit $fail
+
+  benchmark:
+    name: replay benchmark vs mock server + simulator experiments
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: {python-version: "3.13", cache: pip, cache-dependency-path: requirements.txt}
+      - run: pip install -r requirements.txt
+      - name: start mock OpenAI-compatible server
+        run: |
+          nohup python -m servebench mock --port 8000 > mock.log 2>&1 &
+          for i in $(seq 1 50); do curl -sf http://127.0.0.1:8000/health && break; sleep 0.2; done
+      - name: replay trace + SLO gate
+        run: |
+          python -m servebench run --base-url http://127.0.0.1:8000/v1 --model mock-llm \
+            --trace traces/ci_mock.jsonl --slo slo/mock.json \
+            --out reports/bench.json --summary-md reports/bench.md
+      - name: simulator experiments
+        if: always()
+        run: python -m servesim experiments --md reports/sim.md > /dev/null
+      - name: job summary
+        if: always()
+        run: cat reports/bench.md reports/sim.md >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with: {name: benchmark, path: reports/}

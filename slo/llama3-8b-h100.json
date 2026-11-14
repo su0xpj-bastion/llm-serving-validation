@@ -1,0 +1,6 @@
+{
+  "description": "Example production-style gate for an 8B model on one H100 at the replayed load (chat SLOs in the DistServe / vLLM benchmark style). Tighten per model and hardware after a baseline run.",
+  "goodput_slo": {"ttft_s": 0.5, "tpot_s": 0.05},
+  "max": {"error_rate": 0.001, "ttft_s.p99": 1.0, "ttft_s.p50": 0.25, "itl_s.p99": 0.1, "tpot_s.p99": 0.05, "usage_mismatch": 0},
+  "min": {"slo_attainment": 0.95}
+}

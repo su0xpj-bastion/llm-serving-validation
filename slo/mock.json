@@ -1,0 +1,6 @@
+{
+  "description": "Gate for the CI benchmark against the in-repo mock server. Loose on purpose: the mock is a timing fixture, so this gate proves the client and gate wiring, not a model.",
+  "goodput_slo": {"ttft_s": 0.5, "tpot_s": 0.05},
+  "max": {"error_rate": 0.0, "ttft_s.p99": 1.0, "itl_s.p99": 0.1, "usage_mismatch": 0},
+  "min": {"slo_attainment": 0.95, "output_throughput_tps": 50}
+}
