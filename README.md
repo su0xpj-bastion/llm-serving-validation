@@ -1,5 +1,7 @@
 # llm-serving-validation
 
+> **Moved.** This project now lives in [inference-qa-lab/llm-serving-validation](https://github.com/su0xpj-bastion/inference-qa-lab/tree/main/llm-serving-validation), where it is maintained and tested. This repository is archived and read-only.
+
 Validation for the parts of an LLM serving engine that break quietly: prefill/decode disaggregation, the paged KV cache, prefix caching, and continuous batching.
 There are two halves. **`servesim/`** is a deterministic discrete-event model of a serving engine (vLLM-v1-shaped scheduler, paged KV with ref-counted shared blocks, hash-chained prefix cache, LRU eviction, recompute/swap preemption, a KV-transfer link). It is faithful enough that real invariants can be tested against it, and three realistic engine bugs are seeded behind version flags to show the suite catches them.
 **`servebench/`** is a workload generator plus an open-loop replay client for **any** OpenAI-compatible endpoint (vLLM, SGLang, TRT-LLM). It measures TTFT / ITL / TPOT / throughput / goodput and gates on an SLO file.
